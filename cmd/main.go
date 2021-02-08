@@ -1,6 +1,8 @@
 package main
 
 import (
+	"flag"
+	"fmt"
 	"github.com/360EntSecGroup-Skylar/excelize"
 	"github.com/andygrunwald/go-jira"
 	"log"
@@ -11,6 +13,11 @@ import (
 	"time"
 )
 
+type clparams struct {
+	issueId		string
+	avoidExcel	bool
+}
+
 func main() {
 
 	// Initialize current path
@@ -19,14 +26,44 @@ func main() {
 		log.Fatal(err)
 	}
 
+	// Capture command line options
+	clparams := captureCommandLine()
+
 	// Load configuration file
 	cfg := common.LoadConfiguration(dir + "/config.json")
 
 	// Launch Jira gathering tasks
-	gatherJiraData(cfg)
+	gatherJiraData(cfg, dir, clparams.issueId)
 }
 
-func gatherJiraData(cfg common.Config) {
+/**
+	Capture command line arguments and return within an structure
+ */
+func captureCommandLine() clparams {
+	issuePtr := flag.String("issue", "", "Issue ID to gather log-time")
+	avoidExcelPtr := flag.Bool("avoidexcel", false, "Avoid excel file creation" )
+	helpPtr := flag.Bool("help", false, "Help")
+	flag.Parse()
+
+	if *issuePtr == "" || *helpPtr == true {
+		flag.PrintDefaults()
+		os.Exit(1)
+	}
+
+	// Print captured values
+	fmt.Printf("issuePtr: %s \n", *issuePtr)
+
+	return clparams{
+		*issuePtr,
+		*avoidExcelPtr,
+	}
+}
+
+/**
+	Connect to Jira, extract log-time details from a specific issue and
+	export it to an Excel file.
+ */
+func gatherJiraData(cfg common.Config, dir string, issueid string) {
 
 	tp := jira.BasicAuthTransport{
 		Username: cfg.Jira.Login,
@@ -36,11 +73,11 @@ func gatherJiraData(cfg common.Config) {
 	jiraClient, _ := jira.NewClient(tp.Client(), cfg.Jira.Host)
 
 	var op * jira.AddWorklogQueryOptions = &jira.AddWorklogQueryOptions{Expand: "properties"}
-
-	issue, _, err := jiraClient.Issue.GetWorklogs("ORANGE-1", jira.WithQueryOptions(op))
+	issue, _, err := jiraClient.Issue.GetWorklogs(issueid, jira.WithQueryOptions(op))
 
 	if err != nil {
-		panic(err)
+		fmt.Printf("issuePtr: %s \n",err.Error())
+		os.Exit(1)
 	}
 
 	f := excelize.NewFile()
