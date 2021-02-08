@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-type clparams struct {
+type cmdLnParams struct {
 	issueId		string
 	avoidExcel	bool
 }
@@ -27,19 +27,19 @@ func main() {
 	}
 
 	// Capture command line options
-	clparams := captureCommandLine()
+	Params := captureCommandLine()
 
 	// Load configuration file
 	cfg := common.LoadConfiguration(dir + "/config.json")
 
 	// Launch Jira gathering tasks
-	gatherJiraData(cfg, dir, clparams.issueId)
+	gatherJiraData(cfg, dir, Params.issueId)
 }
 
 /**
 	Capture command line arguments and return within an structure
  */
-func captureCommandLine() clparams {
+func captureCommandLine() cmdLnParams {
 	issuePtr := flag.String("issue", "", "Issue ID to gather log-time")
 	avoidExcelPtr := flag.Bool("avoidexcel", false, "Avoid excel file creation" )
 	helpPtr := flag.Bool("help", false, "Help")
@@ -51,9 +51,11 @@ func captureCommandLine() clparams {
 	}
 
 	// Print captured values
-	fmt.Printf("issuePtr: %s \n", *issuePtr)
+	fmt.Printf("Issue: %s", *issuePtr)
+	fmt.Printf(", AvoidExcel: %t", *avoidExcelPtr)
+	fmt.Printf("\n")
 
-	return clparams{
+	return cmdLnParams{
 		*issuePtr,
 		*avoidExcelPtr,
 	}
