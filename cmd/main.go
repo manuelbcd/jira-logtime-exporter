@@ -20,7 +20,7 @@ type cmdLnParams struct {
 
 func main() {
 
-	// Initialize current path
+	// Initialize current application path
 	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
 	if err != nil {
 		log.Fatal(err)
@@ -74,7 +74,10 @@ func gatherJiraData(cfg common.Config, dir string, issueid string) {
 
 	jiraClient, _ := jira.NewClient(tp.Client(), cfg.Jira.Host)
 
-	var op * jira.AddWorklogQueryOptions = &jira.AddWorklogQueryOptions{Expand: "properties"}
+	// Removed dateStart property since Jira API has a known bug. TODO: reactivate once the bug is fixed.
+	// dateStart := int64(time.Now().Unix())
+	// var op * jira.GetWorklogsQueryOptions = &jira.GetWorklogsQueryOptions{Expand: "properties", StartedAfter: dateStart}
+	var op * jira.GetWorklogsQueryOptions = &jira.GetWorklogsQueryOptions{Expand: "properties"}
 	issue, _, err := jiraClient.Issue.GetWorklogs(issueid, jira.WithQueryOptions(op))
 
 	if err != nil {
@@ -89,7 +92,7 @@ func gatherJiraData(cfg common.Config, dir string, issueid string) {
 	for i := range issue.Worklogs {
 		is := issue.Worklogs[i]
 
-		f.SetCellValue("Sheet1", cellIndex.GetStr(), time.Time(*is.Updated).String())
+		f.SetCellValue("Sheet1", cellIndex.GetStr(), time.Time(*is.Started).String())
 		f.SetCellValue("Sheet1", cellIndex.IncCol().GetStr(), is.Author.DisplayName)
 		f.SetCellValue("Sheet1", cellIndex.IncCol().GetStr(), is.TimeSpent)
 		f.SetCellValue("Sheet1", cellIndex.IncCol().GetStr(), is.Comment)
