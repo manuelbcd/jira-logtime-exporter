@@ -77,6 +77,7 @@ func gatherJiraData(cfg common.Config, dir string, issueid string) {
 	// Removed dateStart property since Jira API has a known bug. TODO: reactivate once the bug is fixed.
 	// dateStart := int64(time.Now().Unix())
 	// var op * jira.GetWorklogsQueryOptions = &jira.GetWorklogsQueryOptions{Expand: "properties", StartedAfter: dateStart}
+
 	var op * jira.GetWorklogsQueryOptions = &jira.GetWorklogsQueryOptions{Expand: "properties"}
 	issue, _, err := jiraClient.Issue.GetWorklogs(issueid, jira.WithQueryOptions(op))
 
