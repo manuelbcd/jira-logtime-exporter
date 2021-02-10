@@ -10,6 +10,7 @@ import (
 	"logtimeexport/pkg/common"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -17,6 +18,9 @@ type cmdLnParams struct {
 	issueId		string
 	avoidExcel	bool
 }
+
+const EXCELFORMULA_TIME string = "=IF(ISNUMBER(FIND(\"d\",[COL][ROW])),LEFT([COL][ROW],FIND(\"d\",[COL][ROW])-1)*24)+IF(ISNUMBER(FIND(\"h\",[COL][ROW])),MID(0&[COL][ROW],MAX(1,FIND(\"h\",0&[COL][ROW])-2),2))+IFERROR(MID(0&[COL][ROW],MAX(1,FIND(\"m\",0&[COL][ROW])-2),2)/60,0)"
+const EXCELFORMULA_CONT string = "=SUMIF(TimeLog!$B:$B,Totals![COL][ROW],TimeLog!$D:$D)"
 
 func main() {
 
@@ -62,6 +66,60 @@ func captureCommandLine() cmdLnParams {
 }
 
 /**
+	Save jira work-log to excel file and adds formulas
+ */
+func saveToExcelFile(issue * jira.Worklog, dir string) {
+	f := excelize.NewFile()
+	f.NewSheet("TimeLog")
+	f.NewSheet("Totals")
+	f.DeleteSheet("Sheet1")
+	var cellIndex cellmanager.Cell
+	cellIndex.Init()
+
+	var nList = common.Names{
+		NameList: make([]string, 0),
+	}
+
+	// Iterate over received work-logs to insert them into excel rows
+	for i := range issue.Worklogs {
+		is := issue.Worklogs[i]
+		nList.AddName(is.Author.DisplayName)
+
+		f.SetCellValue("TimeLog", cellIndex.GetStr(), time.Time(*is.Started).String())
+		f.SetCellValue("TimeLog", cellIndex.IncCol().GetStr(), is.Author.DisplayName)
+		timeCol := cellIndex.IncCol().GetStr()
+		f.SetCellValue("TimeLog", timeCol, is.TimeSpent)
+		// Formula to calculate numeric time from "d h m s" format
+		f.SetCellFormula(
+			"TimeLog",
+			cellIndex.IncCol().GetStr(),
+			strings.ReplaceAll(EXCELFORMULA_TIME, "[COL][ROW]", timeCol))
+		f.SetCellValue("TimeLog", cellIndex.IncCol().GetStr(), is.Comment)
+
+		// Increment row and initialize column
+		cellIndex.IncRow()
+		cellIndex.InitCol()
+	}
+
+	cellIndex.Init()
+	auxCellIndex := cellIndex
+	auxCellIndex.IncRow()
+	// Iterate over names to build "Totals" sheet
+	for i := range nList.NameList {
+		f.SetCellValue("Totals", cellIndex.IncCol().GetStr(), nList.NameList[i])
+		f.SetCellFormula(
+			"Totals",
+			auxCellIndex.IncCol().GetStr(),
+			strings.ReplaceAll(EXCELFORMULA_CONT, "[COL][ROW]", cellIndex.GetStr()))
+	}
+
+	// Save excel file
+	if err := f.SaveAs(dir + "/Book1.xlsx"); err != nil {
+		println(err.Error())
+	}
+}
+
+/**
 	Connect to Jira, extract log-time details from a specific issue and
 	export it to an Excel file.
  */
@@ -86,25 +144,6 @@ func gatherJiraData(cfg common.Config, dir string, issueid string) {
 		os.Exit(1)
 	}
 
-	f := excelize.NewFile()
-	var cellIndex cellmanager.Cell
-	cellIndex.Init()
-
-	for i := range issue.Worklogs {
-		is := issue.Worklogs[i]
-
-		f.SetCellValue("Sheet1", cellIndex.GetStr(), time.Time(*is.Started).String())
-		f.SetCellValue("Sheet1", cellIndex.IncCol().GetStr(), is.Author.DisplayName)
-		f.SetCellValue("Sheet1", cellIndex.IncCol().GetStr(), is.TimeSpent)
-		f.SetCellValue("Sheet1", cellIndex.IncCol().GetStr(), is.Comment)
-
-		cellIndex.IncRow()
-		cellIndex.InitCol()
-	}
-
-	// Save excel file
-	if err := f.SaveAs(dir + "/Book1.xlsx"); err != nil {
-		println(err.Error())
-	}
+	saveToExcelFile(issue, dir)
 }
 
