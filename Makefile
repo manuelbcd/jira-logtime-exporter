@@ -1,5 +1,6 @@
-GOFILES=$(wildcard *.go)
-GONAME=$(shell basename "$(PWD)")
+GOFILES     = $(wildcard *.go)
+GONAME      = $(shell basename "$(PWD)")
+PACKAGES	= $(shell go list ./...)
 
 #tests:
 #	@echo "Launching Tests in Docker Compose"
@@ -21,3 +22,9 @@ install:
 	@echo "Installing from source"
 	WORKSPACE=$(pwd -P)
 	go install
+
+fmt:
+	go fmt $(PACKAGES)
+
+lint:
+	golint ./...

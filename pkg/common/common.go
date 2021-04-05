@@ -7,24 +7,24 @@ import (
 )
 
 /**
-	Configuration object
- */
+Configuration object
+*/
 type Config struct {
 	Test string `json:"test"`
 	Jira struct {
-		Host    	string `json:"host"`
-		Login 		string `json:"login"`
-		Token 		string `json:"token"`
+		Host  string `json:"host"`
+		Login string `json:"login"`
+		Token string `json:"token"`
 	} `json:"jira"`
 }
 
-type Names struct{
-	NameList [] string
+type Names struct {
+	NameList []string
 }
 
 /**
-	Load json configuration json file and return a Config structure
- */
+Load json configuration json file and return a Config structure
+*/
 func LoadConfiguration(file string) Config {
 	configFile, err := os.Open(file)
 	defer configFile.Close()
@@ -39,9 +39,9 @@ func LoadConfiguration(file string) Config {
 }
 
 /**
-	Check if a name exists in the list. If not, append it.
- */
-func (n * Names) AddName(name string) {
+Check if a name exists in the list. If not, append it.
+*/
+func (n *Names) AddName(name string) {
 	for _, n := range n.NameList {
 		if name == n {
 			return

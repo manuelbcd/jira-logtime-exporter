@@ -11,8 +11,8 @@ import (
 )
 
 type cmdLnParams struct {
-	issueId    string // Get worklogs by issue-id
-	userId     string // Get worklogs by user-id
+	issueID    string // Get worklogs by issue-id
+	userID     string // Get worklogs by user-id
 	avoidExcel bool   // Avoid exporting excel file
 }
 
@@ -31,10 +31,10 @@ func main() {
 	cfg := common.LoadConfiguration(dir + "/config.json")
 
 	// Launch Jira-gathering tasks
-	if Params.issueId != "" {
-		app.GatherJiraDataByIssueId(cfg, dir, Params.issueId)
-	} else if Params.userId != "" {
-		app.GatherJiraDataByUserId(cfg, dir, Params.userId)
+	if Params.issueID != "" {
+		app.GatherJiraDataByIssueID(cfg, dir, Params.issueID)
+	} else if Params.userID != "" {
+		app.GatherJiraDataByUserID(cfg, dir, Params.userID)
 	} else {
 		fmt.Println("No parameters detected (Method IssueID or UserID?")
 		os.Exit(1)
@@ -42,18 +42,17 @@ func main() {
 
 }
 
-
 /**
 Capture command line arguments and return within an structure
 */
 func captureCommandLine() cmdLnParams {
 	issueStrPtr := flag.String("issueid", "", "Issue ID to gather log-time from. (i.e. -issueid=PROJ-21)")
-	userIdPtr := flag.String("userid", "", "User ID from whom you want to extract log-time (i.e. -userid=3a8273c90fa-3b9a483720)")
+	userIDPtr := flag.String("userid", "", "User ID from whom you want to extract log-time (i.e. -userid=3a8273c90fa-3b9a483720)")
 	avoidExcelStrPtr := flag.Bool("avoidexcel", false, "Avoid excel file creation")
 	helpPtr := flag.Bool("help", false, "Help")
 	flag.Parse()
 
-	if (*issueStrPtr == "" && *userIdPtr == "") || *helpPtr == true {
+	if (*issueStrPtr == "" && *userIDPtr == "") || *helpPtr == true {
 		flag.PrintDefaults()
 		os.Exit(1)
 	}
@@ -62,20 +61,19 @@ func captureCommandLine() cmdLnParams {
 	if *issueStrPtr != "" {
 		fmt.Printf("Issue: %s", *issueStrPtr)
 	}
-	if *userIdPtr != "" {
+	if *userIDPtr != "" {
 		if *issueStrPtr != "" {
 			fmt.Printf("Error: Can't set both issueID and userID. You must choose one of them.")
 			os.Exit(1)
 		}
-		fmt.Printf("User ID: %s", *userIdPtr)
+		fmt.Printf("User ID: %s", *userIDPtr)
 	}
 	fmt.Printf(", AvoidExcel: %t", *avoidExcelStrPtr)
 	fmt.Printf("\n")
 
 	return cmdLnParams{
 		*issueStrPtr,
-		*userIdPtr,
+		*userIDPtr,
 		*avoidExcelStrPtr,
 	}
 }
-

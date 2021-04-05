@@ -2,82 +2,16 @@ package app
 
 import (
 	"fmt"
-	"github.com/360EntSecGroup-Skylar/excelize"
 	"github.com/andygrunwald/go-jira"
-	"logtimeexport/pkg/cellmanager"
 	"logtimeexport/pkg/common"
 	"os"
-	"strings"
-	"time"
 )
-
-const _excelFormulaTime string = "=IF(ISNUMBER(FIND(\"d\",[COL][ROW])),LEFT([COL][ROW],FIND(\"d\",[COL][ROW])-1)*24)+IF(ISNUMBER(FIND(\"h\",[COL][ROW])),MID(0&[COL][ROW],MAX(1,FIND(\"h\",0&[COL][ROW])-2),2))+IFERROR(MID(0&[COL][ROW],MAX(1,FIND(\"m\",0&[COL][ROW])-2),2)/60,0)"
-const _excelFormulaCount string = "=SUMIF(TimeLog!$B:$B,Totals![COL][ROW],TimeLog!$D:$D)"
-
-
-/**
-Save jira work-log to excel file and adds formulas
-*/
-func saveIssueWorkLogsToExcelFile(issue *jira.Worklog, dir string) {
-	f := excelize.NewFile()
-	f.NewSheet("TimeLog")
-	f.NewSheet("Totals")
-	f.DeleteSheet("Sheet1")
-	var cellIndex cellmanager.Cell
-	cellIndex.Init()
-
-	var nList = common.Names{
-		NameList: make([]string, 0),
-	}
-
-	// Iterate over received work-logs to insert them into excel rows
-	for i := range issue.Worklogs {
-		is := issue.Worklogs[i]
-		nList.AddName(is.Author.DisplayName)
-
-		f.SetCellValue("TimeLog", cellIndex.GetStr(), time.Time(*is.Started).String())
-		f.SetCellValue("TimeLog", cellIndex.IncCol().GetStr(), is.Author.DisplayName)
-		timeCol := cellIndex.IncCol().GetStr()
-		f.SetCellValue("TimeLog", timeCol, is.TimeSpent)
-		// Formula to calculate numeric time from "d h m s" format
-		f.SetCellFormula(
-			"TimeLog",
-			cellIndex.IncCol().GetStr(),
-			strings.ReplaceAll(_excelFormulaTime, "[COL][ROW]", timeCol))
-		f.SetCellValue("TimeLog", cellIndex.IncCol().GetStr(), is.Comment)
-
-		// Increment row and initialize column
-		cellIndex.IncRow()
-		cellIndex.InitCol()
-	}
-
-	cellIndex.Init()
-	auxCellIndex := cellIndex
-	auxCellIndex.IncRow()
-	// Iterate over names to build "Totals" sheet
-	for i := range nList.NameList {
-		f.SetCellValue("Totals", cellIndex.IncCol().GetStr(), nList.NameList[i])
-		f.SetCellFormula(
-			"Totals",
-			auxCellIndex.IncCol().GetStr(),
-			strings.ReplaceAll(_excelFormulaCount, "[COL][ROW]", cellIndex.GetStr()))
-	}
-
-	// Save excel file
-	if err := f.SaveAs(dir + "/Book1.xlsx"); err != nil {
-		println(err.Error())
-	} else {
-		fmt.Printf("\nFile created with success\n")
-	}
-}
-
-
 
 /**
 Connect to Jira, extract log-time details from a specific issue and
 export it to an Excel file.
 */
-func GatherJiraDataByIssueId(cfg common.Config, dir string, issueid string) {
+func GatherJiraDataByIssueID(cfg common.Config, dir string, issueID string) {
 
 	tp := jira.BasicAuthTransport{
 		Username: cfg.Jira.Login,
@@ -91,21 +25,23 @@ func GatherJiraDataByIssueId(cfg common.Config, dir string, issueid string) {
 	// var op * jira.GetWorklogsQueryOptions = &jira.GetWorklogsQueryOptions{Expand: "properties", StartedAfter: dateStart}
 
 	var op *jira.GetWorklogsQueryOptions = &jira.GetWorklogsQueryOptions{Expand: "properties"}
-	workLogs, _, err := jiraClient.Issue.GetWorklogs(issueid, jira.WithQueryOptions(op))
+	workLogs, _, err := jiraClient.Issue.GetWorklogs(issueID, jira.WithQueryOptions(op))
 
 	if err != nil {
 		fmt.Printf("Error requesting worklogs from issue. Error: %s \n", err.Error())
 		os.Exit(1)
 	}
 
-	saveIssueWorkLogsToExcelFile(workLogs, dir)
+	f := initExcelFile()
+	saveIssueWorkLogsToExcelFile(issueID, workLogs, f)
+	saveExcelFile(dir, f)
 }
 
 /**
 Connect to Jira, extract log-time details from a specific user and export it to an Excel file.
 (The request of work-logs from user is made trough JQL query)
 */
-func GatherJiraDataByUserId(cfg common.Config, dir string, userId string) {
+func GatherJiraDataByUserID(cfg common.Config, dir string, userID string) {
 
 	tp := jira.BasicAuthTransport{
 		Username: cfg.Jira.Login,
@@ -114,7 +50,7 @@ func GatherJiraDataByUserId(cfg common.Config, dir string, userId string) {
 
 	jiraClient, _ := jira.NewClient(tp.Client(), cfg.Jira.Host)
 
-	jql := fmt.Sprintf("worklogDate >= -365d and worklogAuthor = %s order by updatedDate DESC", userId)
+	jql := fmt.Sprintf("worklogDate >= -365d and worklogAuthor = %s order by updatedDate DESC", userID)
 
 	options := &jira.SearchOptions{Fields: []string{"summary", "status", "assignee", "worklog"}}
 	issues, resp, err := jiraClient.Issue.Search(jql, options)
@@ -133,10 +69,9 @@ func GatherJiraDataByUserId(cfg common.Config, dir string, userId string) {
 		os.Exit(1)
 	}
 
-
 	var op *jira.GetWorklogsQueryOptions = &jira.GetWorklogsQueryOptions{Expand: "properties"}
 
-	fmt.Printf("\n TOTAL ELEMENTS: %d \n", resp.Total)
+	fmt.Printf("\n Extracting worklogs from %d issues.\n", resp.Total)
 
 	var workLogs []jira.WorklogRecord
 
@@ -154,7 +89,6 @@ func GatherJiraDataByUserId(cfg common.Config, dir string, userId string) {
 			workLogs = append(workLogs, x)
 		}
 	}
-
 
 	for _, z := range workLogs {
 		fmt.Printf("%s : %+v\n", z.Comment, z.TimeSpentSeconds)
