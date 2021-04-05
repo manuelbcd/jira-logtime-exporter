@@ -15,12 +15,13 @@ import (
 )
 
 type cmdLnParams struct {
-	issueId		string
-	avoidExcel	bool
+	issueId    string // Get worklogs by issue-id
+	userId     string // Get worklogs by user-id
+	avoidExcel bool   // Avoid exporting excel file
 }
 
-const EXCELFORMULA_TIME string = "=IF(ISNUMBER(FIND(\"d\",[COL][ROW])),LEFT([COL][ROW],FIND(\"d\",[COL][ROW])-1)*24)+IF(ISNUMBER(FIND(\"h\",[COL][ROW])),MID(0&[COL][ROW],MAX(1,FIND(\"h\",0&[COL][ROW])-2),2))+IFERROR(MID(0&[COL][ROW],MAX(1,FIND(\"m\",0&[COL][ROW])-2),2)/60,0)"
-const EXCELFORMULA_CONT string = "=SUMIF(TimeLog!$B:$B,Totals![COL][ROW],TimeLog!$D:$D)"
+const _excelFormulaTime string = "=IF(ISNUMBER(FIND(\"d\",[COL][ROW])),LEFT([COL][ROW],FIND(\"d\",[COL][ROW])-1)*24)+IF(ISNUMBER(FIND(\"h\",[COL][ROW])),MID(0&[COL][ROW],MAX(1,FIND(\"h\",0&[COL][ROW])-2),2))+IFERROR(MID(0&[COL][ROW],MAX(1,FIND(\"m\",0&[COL][ROW])-2),2)/60,0)"
+const _excelFormulaCount string = "=SUMIF(TimeLog!$B:$B,Totals![COL][ROW],TimeLog!$D:$D)"
 
 func main() {
 
@@ -36,39 +37,58 @@ func main() {
 	// Load configuration file
 	cfg := common.LoadConfiguration(dir + "/config.json")
 
-	// Launch Jira gathering tasks
-	gatherJiraData(cfg, dir, Params.issueId)
+	// Launch Jira-gathering tasks
+	if Params.issueId != "" {
+		gatherJiraDataByIssueId(cfg, dir, Params.issueId)
+	} else if Params.userId != "" {
+		gatherJiraDataByUserId(cfg, dir, Params.userId)
+	} else {
+		fmt.Println("No parameters detected (Method IssueID or UserID?")
+		os.Exit(1)
+	}
+
 }
 
 /**
-	Capture command line arguments and return within an structure
- */
+Capture command line arguments and return within an structure
+*/
 func captureCommandLine() cmdLnParams {
-	issuePtr := flag.String("issue", "", "Issue ID to gather log-time")
-	avoidExcelPtr := flag.Bool("avoidexcel", false, "Avoid excel file creation" )
+	issueStrPtr := flag.String("issueid", "", "Issue ID to gather log-time from. (i.e. -issueid=PROJ-21)")
+	userIdPtr := flag.String("userid", "", "User ID from whom you want to extract log-time (i.e. -userid=3a8273c90fa-3b9a483720)")
+	avoidExcelStrPtr := flag.Bool("avoidexcel", false, "Avoid excel file creation")
 	helpPtr := flag.Bool("help", false, "Help")
 	flag.Parse()
 
-	if *issuePtr == "" || *helpPtr == true {
+	if (*issueStrPtr == "" && *userIdPtr == "") || *helpPtr == true {
 		flag.PrintDefaults()
 		os.Exit(1)
 	}
 
-	// Print captured values
-	fmt.Printf("Issue: %s", *issuePtr)
-	fmt.Printf(", AvoidExcel: %t", *avoidExcelPtr)
+	// Show captured configuration values
+	if *issueStrPtr != "" {
+		fmt.Printf("Issue: %s", *issueStrPtr)
+	}
+	if *userIdPtr != "" {
+		if *issueStrPtr != "" {
+			fmt.Printf("Error: Can't set both issueID and userID. You must choose one of them.")
+			os.Exit(1)
+		}
+		fmt.Printf("User ID: %s", *userIdPtr)
+	}
+	fmt.Printf(", AvoidExcel: %t", *avoidExcelStrPtr)
 	fmt.Printf("\n")
 
 	return cmdLnParams{
-		*issuePtr,
-		*avoidExcelPtr,
+		*issueStrPtr,
+		*userIdPtr,
+		*avoidExcelStrPtr,
 	}
 }
 
 /**
-	Save jira work-log to excel file and adds formulas
- */
-func saveToExcelFile(issue * jira.Worklog, dir string) {
+Save jira work-log to excel file and adds formulas
+*/
+func saveIssueWorkLogsToExcelFile(issue *jira.Worklog, dir string) {
 	f := excelize.NewFile()
 	f.NewSheet("TimeLog")
 	f.NewSheet("Totals")
@@ -93,7 +113,7 @@ func saveToExcelFile(issue * jira.Worklog, dir string) {
 		f.SetCellFormula(
 			"TimeLog",
 			cellIndex.IncCol().GetStr(),
-			strings.ReplaceAll(EXCELFORMULA_TIME, "[COL][ROW]", timeCol))
+			strings.ReplaceAll(_excelFormulaTime, "[COL][ROW]", timeCol))
 		f.SetCellValue("TimeLog", cellIndex.IncCol().GetStr(), is.Comment)
 
 		// Increment row and initialize column
@@ -110,20 +130,24 @@ func saveToExcelFile(issue * jira.Worklog, dir string) {
 		f.SetCellFormula(
 			"Totals",
 			auxCellIndex.IncCol().GetStr(),
-			strings.ReplaceAll(EXCELFORMULA_CONT, "[COL][ROW]", cellIndex.GetStr()))
+			strings.ReplaceAll(_excelFormulaCount, "[COL][ROW]", cellIndex.GetStr()))
 	}
 
 	// Save excel file
 	if err := f.SaveAs(dir + "/Book1.xlsx"); err != nil {
 		println(err.Error())
+	} else {
+		fmt.Printf("\nFile created with success\n")
 	}
 }
 
+
+
 /**
-	Connect to Jira, extract log-time details from a specific issue and
-	export it to an Excel file.
- */
-func gatherJiraData(cfg common.Config, dir string, issueid string) {
+Connect to Jira, extract log-time details from a specific issue and
+export it to an Excel file.
+*/
+func gatherJiraDataByIssueId(cfg common.Config, dir string, issueid string) {
 
 	tp := jira.BasicAuthTransport{
 		Username: cfg.Jira.Login,
@@ -136,14 +160,75 @@ func gatherJiraData(cfg common.Config, dir string, issueid string) {
 	// dateStart := int64(time.Now().Unix())
 	// var op * jira.GetWorklogsQueryOptions = &jira.GetWorklogsQueryOptions{Expand: "properties", StartedAfter: dateStart}
 
-	var op * jira.GetWorklogsQueryOptions = &jira.GetWorklogsQueryOptions{Expand: "properties"}
-	issue, _, err := jiraClient.Issue.GetWorklogs(issueid, jira.WithQueryOptions(op))
+	var op *jira.GetWorklogsQueryOptions = &jira.GetWorklogsQueryOptions{Expand: "properties"}
+	workLogs, _, err := jiraClient.Issue.GetWorklogs(issueid, jira.WithQueryOptions(op))
 
 	if err != nil {
-		fmt.Printf("issuePtr: %s \n",err.Error())
+		fmt.Printf("Error requesting worklogs from issue. Error: %s \n", err.Error())
 		os.Exit(1)
 	}
 
-	saveToExcelFile(issue, dir)
+	saveIssueWorkLogsToExcelFile(workLogs, dir)
+}
+
+/**
+Connect to Jira, extract log-time details from a specific user and export it to an Excel file.
+(The request of work-logs from user is made trough JQL query)
+*/
+func gatherJiraDataByUserId(cfg common.Config, dir string, userId string) {
+
+	tp := jira.BasicAuthTransport{
+		Username: cfg.Jira.Login,
+		Password: cfg.Jira.Token,
+	}
+
+	jiraClient, _ := jira.NewClient(tp.Client(), cfg.Jira.Host)
+
+	jql := fmt.Sprintf("worklogDate >= -365d and worklogAuthor = %s order by updatedDate DESC", userId)
+
+	options := &jira.SearchOptions{Fields: []string{"summary", "status", "assignee", "worklog"}}
+	issues, resp, err := jiraClient.Issue.Search(jql, options)
+
+	if err != nil {
+		fmt.Printf("Error requesting worklogs from user id. Error: %s \n", err.Error())
+		os.Exit(1)
+	}
+
+	// TODO Check WarningMessages in response body
+	// It is not implemented yet by go-jira
+	// Issue https://github.com/andygrunwald/go-jira/issues/368
+
+	if resp.Total == 0 {
+		fmt.Printf("No worklogs found for that user id.\n")
+		os.Exit(1)
+	}
+
+
+	var op *jira.GetWorklogsQueryOptions = &jira.GetWorklogsQueryOptions{Expand: "properties"}
+
+	fmt.Printf("\n TOTAL ELEMENTS: %d \n", resp.Total)
+
+	var workLogs []jira.WorklogRecord
+
+	// Collect all work-logs from retrieved issues
+	for _, i := range issues {
+		fmt.Printf("%s : %+v\n", i.Key, i.Fields.Summary)
+
+		tempWorkLog, _, err := jiraClient.Issue.GetWorklogs(i.ID, jira.WithQueryOptions(op))
+		if err != nil {
+			fmt.Printf("Error requesting worklogs from issue. Error: %s \n", err.Error())
+			os.Exit(1)
+		}
+
+		for _, x := range tempWorkLog.Worklogs {
+			workLogs = append(workLogs, x)
+		}
+	}
+
+
+	for _, z := range workLogs {
+		fmt.Printf("%s : %+v\n", z.Comment, z.TimeSpentSeconds)
+	}
+
 }
 
