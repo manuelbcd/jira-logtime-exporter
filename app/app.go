@@ -1,89 +1,19 @@
-package main
+package app
 
 import (
-	"flag"
 	"fmt"
 	"github.com/360EntSecGroup-Skylar/excelize"
 	"github.com/andygrunwald/go-jira"
-	"log"
 	"logtimeexport/pkg/cellmanager"
 	"logtimeexport/pkg/common"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 )
 
-type cmdLnParams struct {
-	issueId    string // Get worklogs by issue-id
-	userId     string // Get worklogs by user-id
-	avoidExcel bool   // Avoid exporting excel file
-}
-
 const _excelFormulaTime string = "=IF(ISNUMBER(FIND(\"d\",[COL][ROW])),LEFT([COL][ROW],FIND(\"d\",[COL][ROW])-1)*24)+IF(ISNUMBER(FIND(\"h\",[COL][ROW])),MID(0&[COL][ROW],MAX(1,FIND(\"h\",0&[COL][ROW])-2),2))+IFERROR(MID(0&[COL][ROW],MAX(1,FIND(\"m\",0&[COL][ROW])-2),2)/60,0)"
 const _excelFormulaCount string = "=SUMIF(TimeLog!$B:$B,Totals![COL][ROW],TimeLog!$D:$D)"
 
-func main() {
-
-	// Initialize current application path
-	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// Capture command line options
-	Params := captureCommandLine()
-
-	// Load configuration file
-	cfg := common.LoadConfiguration(dir + "/config.json")
-
-	// Launch Jira-gathering tasks
-	if Params.issueId != "" {
-		gatherJiraDataByIssueId(cfg, dir, Params.issueId)
-	} else if Params.userId != "" {
-		gatherJiraDataByUserId(cfg, dir, Params.userId)
-	} else {
-		fmt.Println("No parameters detected (Method IssueID or UserID?")
-		os.Exit(1)
-	}
-
-}
-
-/**
-Capture command line arguments and return within an structure
-*/
-func captureCommandLine() cmdLnParams {
-	issueStrPtr := flag.String("issueid", "", "Issue ID to gather log-time from. (i.e. -issueid=PROJ-21)")
-	userIdPtr := flag.String("userid", "", "User ID from whom you want to extract log-time (i.e. -userid=3a8273c90fa-3b9a483720)")
-	avoidExcelStrPtr := flag.Bool("avoidexcel", false, "Avoid excel file creation")
-	helpPtr := flag.Bool("help", false, "Help")
-	flag.Parse()
-
-	if (*issueStrPtr == "" && *userIdPtr == "") || *helpPtr == true {
-		flag.PrintDefaults()
-		os.Exit(1)
-	}
-
-	// Show captured configuration values
-	if *issueStrPtr != "" {
-		fmt.Printf("Issue: %s", *issueStrPtr)
-	}
-	if *userIdPtr != "" {
-		if *issueStrPtr != "" {
-			fmt.Printf("Error: Can't set both issueID and userID. You must choose one of them.")
-			os.Exit(1)
-		}
-		fmt.Printf("User ID: %s", *userIdPtr)
-	}
-	fmt.Printf(", AvoidExcel: %t", *avoidExcelStrPtr)
-	fmt.Printf("\n")
-
-	return cmdLnParams{
-		*issueStrPtr,
-		*userIdPtr,
-		*avoidExcelStrPtr,
-	}
-}
 
 /**
 Save jira work-log to excel file and adds formulas
@@ -147,7 +77,7 @@ func saveIssueWorkLogsToExcelFile(issue *jira.Worklog, dir string) {
 Connect to Jira, extract log-time details from a specific issue and
 export it to an Excel file.
 */
-func gatherJiraDataByIssueId(cfg common.Config, dir string, issueid string) {
+func GatherJiraDataByIssueId(cfg common.Config, dir string, issueid string) {
 
 	tp := jira.BasicAuthTransport{
 		Username: cfg.Jira.Login,
@@ -175,7 +105,7 @@ func gatherJiraDataByIssueId(cfg common.Config, dir string, issueid string) {
 Connect to Jira, extract log-time details from a specific user and export it to an Excel file.
 (The request of work-logs from user is made trough JQL query)
 */
-func gatherJiraDataByUserId(cfg common.Config, dir string, userId string) {
+func GatherJiraDataByUserId(cfg common.Config, dir string, userId string) {
 
 	tp := jira.BasicAuthTransport{
 		Username: cfg.Jira.Login,
@@ -231,4 +161,3 @@ func gatherJiraDataByUserId(cfg common.Config, dir string, userId string) {
 	}
 
 }
-
