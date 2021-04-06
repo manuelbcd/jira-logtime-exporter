@@ -5,7 +5,11 @@ import (
 	"github.com/andygrunwald/go-jira"
 	"logtimeexport/pkg/common"
 	"os"
+	"sort"
+	"time"
 )
+
+
 
 /**
 Connect to Jira, extract log-time details from a specific issue and
@@ -93,6 +97,11 @@ func GatherJiraDataByUserID(cfg common.Config, dir string, userID string) {
 			}
 		}
 	}
+
+	// Sort worklogs by Started datetime
+	sort.Slice(workLogs, func(i, j int) bool {
+		return time.Time(*workLogs[i].Started).Before(time.Time(*workLogs[j].Started))
+	})
 
 	f := initExcelFile()
 	saveIssueWorkLogsToExcelFile(workLogs, f)
