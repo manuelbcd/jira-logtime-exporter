@@ -2,7 +2,7 @@ package app
 
 import (
 	"fmt"
-	"github.com/360EntSecGroup-Skylar/excelize"
+	"github.com/360EntSecGroup-Skylar/excelize/v2"
 	"github.com/andygrunwald/go-jira"
 	"logtimeexport/pkg/cellmanager"
 	"logtimeexport/pkg/common"
@@ -34,9 +34,10 @@ func saveExcelFile(dir string, f *excelize.File) {
 }
 
 // Save jira work-log to excel file and adds formulas
-func saveIssueWorkLogsToExcelFile(workLogs []jira.WorklogRecord, issueList []jira.Issue, f *excelize.File) {
+func saveIssueWorkLogsToExcelFile(cfg common.Config, workLogs []jira.WorklogRecord, issueList []jira.Issue, f *excelize.File) {
 	var cellIndex cellmanager.Cell
 	cellIndex.Init()
+	style, _ := f.NewStyle(`{"number_format": 2}`) // Numeric style #.##
 
 	var nList = common.Names{
 		NameList: make([]string, 0),
@@ -48,7 +49,7 @@ func saveIssueWorkLogsToExcelFile(workLogs []jira.WorklogRecord, issueList []jir
 		is := workLogs[i]
 		nList.AddName(is.Author.DisplayName)
 
-		f.SetCellValue("TimeLog", cellIndex.GetStr(), time.Time(*is.Started).String())
+		f.SetCellValue("TimeLog", cellIndex.GetStr(), time.Time(*is.Started).Format(cfg.DateFormat))
 		f.SetCellValue("TimeLog", cellIndex.IncCol().GetStr(), findIssueKeyByID(issueList, is.IssueID))
 		f.SetCellValue("TimeLog", cellIndex.IncCol().GetStr(), is.Author.DisplayName)
 		timeCol := cellIndex.IncCol().GetStr()
@@ -58,6 +59,7 @@ func saveIssueWorkLogsToExcelFile(workLogs []jira.WorklogRecord, issueList []jir
 			"TimeLog",
 			cellIndex.IncCol().GetStr(),
 			strings.ReplaceAll(_excelFormulaTime, "[COL][ROW]", timeCol))
+		f.SetCellStyle("TimeLog", cellIndex.GetStr(), cellIndex.GetStr(), style)
 		f.SetCellValue("TimeLog", cellIndex.IncCol().GetStr(), is.Comment)
 
 		// Increment row and initialize column
@@ -77,6 +79,7 @@ func saveIssueWorkLogsToExcelFile(workLogs []jira.WorklogRecord, issueList []jir
 			"Totals",
 			auxCellIndex.IncCol().GetStr(),
 			strings.ReplaceAll(_excelFormulaCount, "[COL][ROW]", cellIndex.GetStr()))
+		f.SetCellStyle("Totals", auxCellIndex.GetStr(), auxCellIndex.GetStr(), style)
 	}
 
 	cellIndex.Init()

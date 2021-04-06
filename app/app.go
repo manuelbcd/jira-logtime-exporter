@@ -44,7 +44,7 @@ func GatherJiraDataByIssueKey(cfg common.Config, dir string, issueKey string) {
 	}
 
 	f := initExcelFile()
-	saveIssueWorkLogsToExcelFile(workLogs.Worklogs, issueList, f)
+	saveIssueWorkLogsToExcelFile(cfg, workLogs.Worklogs, issueList, f)
 	saveExcelFile(dir, f)
 }
 
@@ -111,6 +111,6 @@ func GatherJiraDataByUserID(cfg common.Config, dir string, userID string) {
 	})
 
 	f := initExcelFile()
-	saveIssueWorkLogsToExcelFile(workLogs, issues, f)
+	saveIssueWorkLogsToExcelFile(cfg, workLogs, issues, f)
 	saveExcelFile(dir, f)
 }

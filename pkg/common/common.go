@@ -16,6 +16,7 @@ type Config struct {
 		Login string `json:"login"`
 		Token string `json:"token"`
 	} `json:"jira"`
+	DateFormat string `json:"dateformat"`
 }
 
 type Names struct {
