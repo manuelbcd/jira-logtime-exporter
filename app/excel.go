@@ -86,7 +86,6 @@ func saveIssueWorkLogsToExcelFile(workLogs []jira.WorklogRecord, issueList []jir
 	for _, i := range issueList {
 		f.SetCellValue("Issues", cellIndex.GetStr(), i.Key)
 		f.SetCellValue("Issues", cellIndex.IncCol().GetStr(), i.Fields.Summary)
-		f.SetCellValue("Issues", cellIndex.IncCol().GetStr(), i.Fields.Worklog.Total)
 		// Increment row and initialize column
 		cellIndex.IncRow()
 		cellIndex.InitCol()
