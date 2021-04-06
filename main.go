@@ -11,7 +11,7 @@ import (
 )
 
 type cmdLnParams struct {
-	issueID    string // Get worklogs by issue-id
+	issueKey    string // Get worklogs by issue-id
 	userID     string // Get worklogs by user-id
 	avoidExcel bool   // Avoid exporting excel file
 }
@@ -31,12 +31,12 @@ func main() {
 	cfg := common.LoadConfiguration(dir + "/config.json")
 
 	// Launch Jira-gathering tasks
-	if Params.issueID != "" {
-		app.GatherJiraDataByIssueID(cfg, dir, Params.issueID)
+	if Params.issueKey != "" {
+		app.GatherJiraDataByIssueKey(cfg, dir, Params.issueKey)
 	} else if Params.userID != "" {
 		app.GatherJiraDataByUserID(cfg, dir, Params.userID)
 	} else {
-		fmt.Println("No parameters detected (Method IssueID or UserID?")
+		fmt.Println("No parameters detected (Method IssueKey or UserID?")
 		os.Exit(1)
 	}
 
@@ -46,7 +46,7 @@ func main() {
 Capture command line arguments and return within an structure
 */
 func captureCommandLine() cmdLnParams {
-	issueStrPtr := flag.String("issueid", "", "Issue ID to gather log-time from. (i.e. -issueid=PROJ-21)")
+	issueStrPtr := flag.String("issuekey", "", "Issue Key to gather log-time from. (i.e. -issuekey=PROJ-21)")
 	userIDPtr := flag.String("userid", "", "User ID from whom you want to extract log-time (i.e. -userid=3a8273c90fa-3b9a483720)")
 	avoidExcelStrPtr := flag.Bool("avoidexcel", false, "Avoid excel file creation")
 	helpPtr := flag.Bool("help", false, "Help")
@@ -63,7 +63,7 @@ func captureCommandLine() cmdLnParams {
 	}
 	if *userIDPtr != "" {
 		if *issueStrPtr != "" {
-			fmt.Printf("Error: Can't set both issueID and userID. You must choose one of them.")
+			fmt.Printf("Error: Can't set both issueKey and userID. You must choose one of them.")
 			os.Exit(1)
 		}
 		fmt.Printf("User ID: %s", *userIDPtr)

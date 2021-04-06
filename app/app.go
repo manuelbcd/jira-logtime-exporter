@@ -10,12 +10,11 @@ import (
 )
 
 
-
 /**
 Connect to Jira, extract log-time details from a specific issue and
 export it to an Excel file.
 */
-func GatherJiraDataByIssueID(cfg common.Config, dir string, issueID string) {
+func GatherJiraDataByIssueKey(cfg common.Config, dir string, issueKey string) {
 
 	tp := jira.BasicAuthTransport{
 		Username: cfg.Jira.Login,
@@ -24,12 +23,20 @@ func GatherJiraDataByIssueID(cfg common.Config, dir string, issueID string) {
 
 	jiraClient, _ := jira.NewClient(tp.Client(), cfg.Jira.Host)
 
-	// Removed dateStart property since Jira API has a known bug. TODO: reactivate once the bug is fixed.
-	// dateStart := int64(time.Now().Unix())
-	// var op * jira.GetWorklogsQueryOptions = &jira.GetWorklogsQueryOptions{Expand: "properties", StartedAfter: dateStart}
 
+	var issueList []jira.Issue
+	issue, _, err := jiraClient.Issue.Get(issueKey, nil)
+	if err != nil {
+		fmt.Printf("Error requesting issue before requesting worklogs. Error: %s \n", err.Error())
+		os.Exit(1)
+	}
+	issueList = append(issueList, *issue)
+
+	// Retrieve worklogs from issue key
+	// Please note that Jira API has a known bug and it is not possible to filter worklogs by date.
+	// TODO: Add date filtering once the bug is fixed.
 	var op *jira.GetWorklogsQueryOptions = &jira.GetWorklogsQueryOptions{Expand: "properties"}
-	workLogs, _, err := jiraClient.Issue.GetWorklogs(issueID, jira.WithQueryOptions(op))
+	workLogs, _, err := jiraClient.Issue.GetWorklogs(issueKey, jira.WithQueryOptions(op))
 
 	if err != nil {
 		fmt.Printf("Error requesting worklogs from issue. Error: %s \n", err.Error())
@@ -37,7 +44,7 @@ func GatherJiraDataByIssueID(cfg common.Config, dir string, issueID string) {
 	}
 
 	f := initExcelFile()
-	saveIssueWorkLogsToExcelFile(workLogs.Worklogs, f)
+	saveIssueWorkLogsToExcelFile(workLogs.Worklogs, issueList, f)
 	saveExcelFile(dir, f)
 }
 
@@ -104,6 +111,6 @@ func GatherJiraDataByUserID(cfg common.Config, dir string, userID string) {
 	})
 
 	f := initExcelFile()
-	saveIssueWorkLogsToExcelFile(workLogs, f)
+	saveIssueWorkLogsToExcelFile(workLogs, issues, f)
 	saveExcelFile(dir, f)
 }
