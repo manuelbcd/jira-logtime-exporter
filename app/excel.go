@@ -13,8 +13,7 @@ import (
 const _excelFormulaTime string = "=IF(ISNUMBER(FIND(\"d\",[COL][ROW])),LEFT([COL][ROW],FIND(\"d\",[COL][ROW])-1)*24)+IF(ISNUMBER(FIND(\"h\",[COL][ROW])),MID(0&[COL][ROW],MAX(1,FIND(\"h\",0&[COL][ROW])-2),2))+IFERROR(MID(0&[COL][ROW],MAX(1,FIND(\"m\",0&[COL][ROW])-2),2)/60,0)"
 const _excelFormulaCount string = "=SUMIF(TimeLog!$C:$C,Totals![COL][ROW],TimeLog!$E:$E)"
 
-
-func initExcelFile() *excelize.File{
+func initExcelFile() *excelize.File {
 	f := excelize.NewFile()
 	f.NewSheet("TimeLog")
 	f.NewSheet("Totals")
@@ -23,7 +22,7 @@ func initExcelFile() *excelize.File{
 	return f
 }
 
-func saveExcelFile(dir string, f *excelize.File){
+func saveExcelFile(dir string, f *excelize.File) {
 	// Save excel file
 	if err := f.SaveAs(dir + "/Book1.xlsx"); err != nil {
 		println(err.Error())
@@ -35,7 +34,7 @@ func saveExcelFile(dir string, f *excelize.File){
 /**
 Save jira work-log to excel file and adds formulas
 */
-func saveIssueWorkLogsToExcelFile(issueID string, issue *jira.Worklog, f *excelize.File) {
+func saveIssueWorkLogsToExcelFile(workLogs []jira.WorklogRecord, f *excelize.File) {
 	var cellIndex cellmanager.Cell
 	cellIndex.Init()
 
@@ -44,12 +43,12 @@ func saveIssueWorkLogsToExcelFile(issueID string, issue *jira.Worklog, f *exceli
 	}
 
 	// Iterate over received work-logs to insert them into excel rows
-	for i := range issue.Worklogs {
-		is := issue.Worklogs[i]
+	for i := range workLogs {
+		is := workLogs[i]
 		nList.AddName(is.Author.DisplayName)
 
 		f.SetCellValue("TimeLog", cellIndex.GetStr(), time.Time(*is.Started).String())
-		f.SetCellValue("TimeLog", cellIndex.IncCol().GetStr(), issueID)
+		f.SetCellValue("TimeLog", cellIndex.IncCol().GetStr(), is.IssueID)
 		f.SetCellValue("TimeLog", cellIndex.IncCol().GetStr(), is.Author.DisplayName)
 		timeCol := cellIndex.IncCol().GetStr()
 		f.SetCellValue("TimeLog", timeCol, is.TimeSpent)

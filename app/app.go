@@ -33,7 +33,7 @@ func GatherJiraDataByIssueID(cfg common.Config, dir string, issueID string) {
 	}
 
 	f := initExcelFile()
-	saveIssueWorkLogsToExcelFile(issueID, workLogs, f)
+	saveIssueWorkLogsToExcelFile(workLogs.Worklogs, f)
 	saveExcelFile(dir, f)
 }
 
@@ -85,13 +85,16 @@ func GatherJiraDataByUserID(cfg common.Config, dir string, userID string) {
 			os.Exit(1)
 		}
 
+		// Check every single worklog to discard users different from specified one
+		// Note that Jira still does not allow to filter on worklog requests
 		for _, x := range tempWorkLog.Worklogs {
-			workLogs = append(workLogs, x)
+			if x.Author.AccountID == userID {
+				workLogs = append(workLogs, x)
+			}
 		}
 	}
 
-	for _, z := range workLogs {
-		fmt.Printf("%s : %+v\n", z.Comment, z.TimeSpentSeconds)
-	}
-
+	f := initExcelFile()
+	saveIssueWorkLogsToExcelFile(workLogs, f)
+	saveExcelFile(dir, f)
 }
